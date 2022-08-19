@@ -20,7 +20,8 @@ class Card():
             n = randint(0, 999999999)
             if n not in [int(c[6:16]) for c in self.cards]:
                 break
-        c_num = '400000' + str(n).rjust(9, '0') + str(randint(0, 9))
+        c_num = '400000' + str(n).rjust(9, '0')
+        c_num += chk_sum(c_num)
         self.cards[c_num] = self.pin
         return c_num
 
@@ -28,6 +29,16 @@ class Card():
         p = str(randint(0, 9999))
         return p.rjust(4, '0')
 
+
+def chk_sum(num):
+    sum = 0
+    for i in range(0, 15):
+        if i % 2 == 0:
+            n = int(num[i]) * 2
+            sum += n if n < 9 else n - 9
+        else:
+            sum += int(num[i])
+    return str((10 - sum % 10) % 10)
 
 def create_account():
     card = Card('')
@@ -43,6 +54,7 @@ def log_in():
         print('\nYou have successfully logged in!')
     else:
         print('\nWrong card number or PIN!')
+        return True
 
     while True:
         cmd = input(s_menu2)
