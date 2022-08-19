@@ -1,4 +1,47 @@
+import sqlite3
 from random import randint
+from sqlite3 import Error
+
+
+def connect_db(db_file):
+    conn = None
+    try:
+        conn = sqlite3.connect(db_file)
+        return conn
+    except Error as e:
+        print(e)
+    return conn
+
+def create_table(conn):
+    sql = """CREATE TABLE IF NOT EXISTS card (
+                id integer PRIMARY KEY,
+                number TEXT,
+                pin TEXT,
+                balance integer DEFAULT 0
+            ); """
+    try:
+        c = conn.cursor()
+        c.execute(sql)
+    except Error as e:
+        print(e)
+
+def add_row(conn, row):
+    sql = ''' INSERT INTO card(id,number,pin,balance)
+                VALUES(?,?,?,?) '''
+    cur = conn.cursor()
+    cur.execute('select max(id) from card')
+    id = cur.fetchone()
+    id = 1 if id[0] is None else id[0] + 1
+    val = [id] + row
+    cur.execute(sql, val)
+    conn.commit()
+
+def select_all(conn):
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM card")
+    rows = cur.fetchall()
+    for row in rows:
+        print(row)
 
 class Card():
     cards = {}
@@ -42,6 +85,8 @@ def chk_sum(num):
 
 def create_account():
     card = Card('')
+    row = [card.num, card.pin, card.balance]
+    add_row(conn, row)
     print('Your card has been created')
     print(f'Your card number:\n{card.num}')
     print(f'Your card PIN:\n{card.pin}')
@@ -78,9 +123,11 @@ s_menu2 = '''
 0. Exit
 '''
 
-loop = True
-card = ''
+conn = connect_db('card.s3db')
+create_table(conn)
+# select_all(conn)
 
+loop = True
 while loop:
     cmd = input(s_menu1)
     if cmd == '1':
@@ -90,3 +137,6 @@ while loop:
     else:
         loop = False
 print('\nBye!')
+
+if conn:
+    conn.close()
