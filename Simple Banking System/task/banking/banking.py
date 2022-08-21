@@ -49,14 +49,12 @@ class Card():
     def __init__(self, num):
         if num in self.cards:
             self.num = num
-            self.pin = self.cards[num]
+            self.pin = self.cards[num][0]
+            self.balance = self.cards[num][1]
         else:
             self.pin = self.get_pin()
             self.num = self.get_num()
-        self.balance = 0
-
-    def get_balance(self):
-        return self.balance
+            self.balance = 0
 
     def get_num(self):
         while True:
@@ -65,12 +63,19 @@ class Card():
                 break
         c_num = '400000' + str(n).rjust(9, '0')
         c_num += chk_sum(c_num)
-        self.cards[c_num] = self.pin
+        self.cards[c_num] = (self.pin, 0)
         return c_num
 
     def get_pin(self):
         p = str(randint(0, 9999))
         return p.rjust(4, '0')
+
+    def read_db(conn):
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM card")
+        rows = cur.fetchall()
+        for row in rows:
+            Card.cards[row[1]] = (row[2], row[3])
 
 
 def chk_sum(num):
@@ -94,7 +99,7 @@ def create_account():
 def log_in():
     cnum = input('Enter your card number:\n')
     pin = input('Enter your PIN:\n')
-    if cnum in Card.cards and Card.cards[cnum] == pin:
+    if cnum in Card.cards and Card.cards[cnum][0] == pin:
         card = Card(cnum)
         print('\nYou have successfully logged in!')
     else:
@@ -106,11 +111,60 @@ def log_in():
         if cmd == '1':
             print(f'Balance: {card.balance}')
         elif cmd == '2':
+            add_income(conn, card)
+        elif cmd == '3':
+            do_transfer(conn, card)
+        elif cmd == '4':
+            close_acc(conn, card)
+            return True
+        elif cmd == '5':
             print('You have successfully logged out!')
             return True
         else:
             return False
 
+def update_balance(conn, card, sum):
+    card.balance += sum
+    sql = ''' UPDATE card
+                SET balance = ?
+                WHERE number = ?'''
+    cur = conn.cursor()
+    cur.execute(sql, (card.balance, card.num))
+    conn.commit()
+
+def del_card(conn, card):
+    sql = '''DELETE FROM card WHERE number=?'''
+    cur = conn.cursor()
+    cur.execute(sql, (card.num,))
+    conn.commit()
+
+def add_income(conn, card):
+    sum = int(input('Enter income:\n'))
+    update_balance(conn, card, sum)
+    print('Income was added!')
+
+def do_transfer(conn, card):
+    cn_to = input('Transfer\nEnter card number:\n')
+    if cn_to[-1] != chk_sum(cn_to):
+        print('Probably you made a mistake in the card number. Please try again!')
+        return
+    elif cn_to not in Card.cards:
+        print('Such a card does not exist.')
+        return
+    else:
+        sum = int(input('Enter how much money you want to transfer:\n'))
+        print('sum=', sum, 'balance=', card.balance, sum < card.balance)
+        if sum > card.balance:
+            print('Not enough money!')
+        else:
+            card_to = Card(cn_to)
+            update_balance(conn, card, -sum)
+            update_balance(conn, card_to, sum)
+            print('Success!')
+
+def close_acc(conn, card):
+    del_card(conn, card)
+    print('The account has been closed!')
 
 s_menu1 = '''
 1. Create an account
@@ -119,12 +173,16 @@ s_menu1 = '''
 '''
 s_menu2 = '''
 1. Balance
-2. Log out
+2. Add income
+3. Do transfer
+4. Close account
+5. Log out
 0. Exit
 '''
 
 conn = connect_db('card.s3db')
 create_table(conn)
+Card.read_db(conn)
 # select_all(conn)
 
 loop = True
